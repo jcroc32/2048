@@ -68,16 +68,16 @@ def add_tile():
 	
 def get_action():
 	keyboard_input = getch()
-	if keyboard_input == b'w':   # up
+	if keyboard_input == b'w' or keyboard_input == b'H' or keyboard_input == b'A':   # up
 		step = 1
 		factor = dimension
-	elif keyboard_input == b'a': # right
+	elif keyboard_input == b'a' or keyboard_input == b'K' or keyboard_input == b'D': # left
 		step = 1
 		factor = 1
-	elif keyboard_input == b's': # down
+	elif keyboard_input == b's' or keyboard_input == b'P' or keyboard_input == b'B': # down
 		step = -1
 		factor = dimension
-	elif keyboard_input == b'd': # left
+	elif keyboard_input == b'd' or keyboard_input == b'M' or keyboard_input == b'C': # right
 		step = -1
 		factor = 1
 	elif keyboard_input == b'q' or keyboard_input == b'\x03':
