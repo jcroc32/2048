@@ -1,11 +1,21 @@
 from __future__ import print_function
-# figure out if using python 2 or 3
-import sys
-if sys.version_info[0] < 3:
-  def input(s):
-    return raw_input(s)
+# figure out if Windows or Linux machine
+import platform
+if platform.system() == 'Windows':
+	from msvcrt import getch
+else:
+	import sys, termios, tty
+	def getch():
+		fd = sys.stdin.fileno()
+		old_settings = termios.tcgetattr(fd)
+		try:
+			tty.setraw(sys.stdin.fileno())
+			ch = sys.stdin.read(1)			
+		finally:
+			termios.tcsetattr(fd,termios.TCSADRAIN,old_settings)
+		return ch
 import random as rn
-rn.seed(a=0) # for debugging, comment out for better gameplay
+#rn.seed(a=0) # for debugging
 
 # game variables
 dimension = 4
@@ -57,24 +67,23 @@ def add_tile():
 	board[position] = tile
 	
 def get_action():
-	keyboard_input = input('')
-	if keyboard_input == 'w':   # up
+	keyboard_input = getch()
+	if keyboard_input == b'w':   # up
 		step = 1
 		factor = dimension
-	elif keyboard_input == 'a': # right
+	elif keyboard_input == b'a': # right
 		step = 1
 		factor = 1
-	elif keyboard_input == 's': # down
+	elif keyboard_input == b's': # down
 		step = -1
 		factor = dimension
-	elif keyboard_input == 'd': # left
+	elif keyboard_input == b'd': # left
 		step = -1
 		factor = 1
-	elif keyboard_input == 'quit':
+	elif keyboard_input == b'q' or keyboard_input == b'\x03':
 		end_game()
 	else:
 		return
-		
 	is_change = move(step,factor)
 	if is_change:
 		add_tile()
