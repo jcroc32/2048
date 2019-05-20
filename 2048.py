@@ -15,7 +15,7 @@ else:
 			termios.tcsetattr(fd,termios.TCSADRAIN,old_settings)
 		return ch
 import random as rn
-#rn.seed(a=0) # for debugging
+rn.seed(a=0) # for debugging
 
 # game variables
 dimension = 4
