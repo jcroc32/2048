@@ -1,50 +1,125 @@
-from __future__ import print_function
-import platform
 import sys
-# figure out if Windows or Linux machine
-if platform.system() == 'Windows':
-	from msvcrt import getch
-else:
-	import termios, tty
-	def getch():
-		fd = sys.stdin.fileno()
-		old_settings = termios.tcgetattr(fd)
-		try:
-			tty.setraw(sys.stdin.fileno())
-			ch = sys.stdin.read(1)			
-		finally:
-			termios.tcsetattr(fd,termios.TCSADRAIN,old_settings)
-		return ch
+import math
+import random
 # figure out if using python 2 or 3
 if sys.version_info[0] < 3:
-	from Tkinter import *
+	import Tkinter as tkinter
 else:
-	from tkinter import *
-import random as rn
+	import tkinter
 
-rn.seed(a=0) # for debugging
-
-# game variables
+###--game variables--###
 dimension = 4
-board = dimension**2*[0]
-
+total_tiles = dimension**2
+board = total_tiles*[0]
 file_name = '.HIGHSCORE.txt'
-# load high score from txt file
-try:
-  file = open(file_name,'r')
-  high_score = file.read()
-except Exception as e:
-  file = open(file_name,'w+')
-  high_score = 0
-try:
-  high_score = int(high_score)
-except Exception as e:
-  high_score = 0
+high_score = 0
+###------------------###
 
-# game actions
+###--GUI variables--###
+width_tile = 130
+height_tile = 130
+height_scoreboard = 50
+font_tile = 'Times 24 italic bold'
+font_scoreboard = 'Times 12 italic bold'
+fill = 'black'
+root = tkinter.Tk()
+top = tkinter.Canvas(root,width=535,height=585)
+###-----------------###
+
+###--GUI actions--###
+def make_gui_tile(width,height,bg,row,column,fill,font,text):
+	if bg == '':
+		canvas = tkinter.Canvas(top,width=width,height=height)
+	else:
+		canvas = tkinter.Canvas(top,width=width,height=height,bg=bg)
+	canvas.grid(row=row,column=column)
+	canvas.create_text(width/2,height/2,fill=fill,font=font,text=text)
+
+def set_score(score,high_score):
+	# make score box
+	width = width_tile
+	height = height_scoreboard
+	bg = ''
+	row = 0
+	column = dimension-1
+	font = font_scoreboard
+	text = 'score: '+str(score)
+	make_gui_tile(width,height,bg,row,column,fill,font,text)
+	# make highscore box
+	if score > high_score:
+		high_score = score
+	column = dimension
+	text = 'high score: '+str(high_score)
+	make_gui_tile(width,height,bg,row,column,fill,font,text)
+
+def init_gui_board():
+	# retry_button_canvas.pack_forget()
+	width = width_tile
+	height = height_scoreboard
+	bg = ''
+	row = 0
+	font = font_scoreboard
+	text = ''
+	for column in [1,2]:
+		make_gui_tile(width,height,bg,row,column,fill,font,text)
+	# create all tiles
+	height = height_tile
+	bg = '#cdcdcd'
+	text = ''
+	font = font_tile
+	for i in range(total_tiles):
+		row = i//dimension+1
+		column = i%dimension+1
+		make_gui_tile(width,height,bg,row,column,fill,font,text)
+	# make scoreboard
+	set_score(0,high_score)
+	top.pack()
+
+def update_gui_board():
+	width = width_tile
+	height = height_tile
+	font = font_tile
+	for i in range(total_tiles):
+		tile = board[i]
+		if tile == 0:
+			bg = '#cdcdcd'
+		elif tile < 64:
+			bg = '#'+'{0:#0{1}x}'.format(13487565 - 34*int(math.log(tile,2)),8)[2:]
+		elif tile < 4096:
+			bg = '#'+'{0:#0{1}x}'.format(13487395 - 34*int(math.log(tile,2)-5)*256,8)[2:]
+		else:
+			bg = '#'+'{0:#0{1}x}'.format(13435171 - 34*int(math.log(tile,2)-11)*65536,8)[2:]
+		row = i//dimension+1
+		column = i%dimension+1
+		if tile == 0:
+			text = ''
+		else:
+			text = str(tile)
+		make_gui_tile(width,height,bg,row,column,fill,font,text)
+	set_score(sum(board),high_score)
+	top.pack()
+
+def end_gui_game(init_gui_board):
+	width = width_tile
+	height = height_scoreboard
+	bg = ''
+	text = 'GAME OVER'
+	font = 'Times 16 italic bold'
+	fill = 'red'
+	row = 0
+	column = 1
+	make_gui_tile(width,height,bg,row,column,fill,font,text)
+	canvas = tkinter.Canvas(top,width=width,height=height_scoreboard)
+	canvas.grid(row=0,column=2)
+	retry_button = tkinter.Button(canvas,text='Try Again?',command=init_gui_board,bg='#c0c0c0')
+	retry_button_window = canvas.create_window(65,25,window=retry_button)
+	top.pack()
+###---------------###
+
+###--Game actions--###
 def make_fake_board():
-	fake_board = len(board)*[0]
-	for i in range(len(board)):
+	fake_board = total_tiles*[0]
+	for i in range(total_tiles):
 		fake_board[i] = board[i]
 	return fake_board
 
@@ -67,129 +142,71 @@ def move(step,factor,board=board):
 	return is_change
 
 def add_tile():
-	free_tiles = [i for i in range(len(board)) if board[i] == 0]
-	position = rn.choice(free_tiles)
-	p = rn.random()
+	free_tiles = [i for i in range(total_tiles) if board[i] == 0]
+	position = random.choice(free_tiles)
+	p = random.random()
 	tile = 2 if p < .9 else 4
 	board[position] = tile
-	
-def get_action():
-	keyboard_input = getch()
-	if keyboard_input == b'w' or keyboard_input == b'H' or keyboard_input == b'A':   # up
-		step = 1
-		factor = dimension
-	elif keyboard_input == b'a' or keyboard_input == b'K' or keyboard_input == b'D': # left
-		step = 1
-		factor = 1
-	elif keyboard_input == b's' or keyboard_input == b'P' or keyboard_input == b'B': # down
-		step = -1
-		factor = dimension
-	elif keyboard_input == b'd' or keyboard_input == b'M' or keyboard_input == b'C': # right
-		step = -1
-		factor = 1
-	elif keyboard_input == b'q' or keyboard_input == b'\x03':
-		end_game()
-	else:
-		return
-	is_change = move(step,factor)
-	if is_change:
-		add_tile()
-		
+
 def check_if_game_over():
 	fake_board = make_fake_board()
 	if (move(1,1,fake_board) or move(1,dimension,fake_board) 
 	or move(-1,dimension,fake_board) or move(-1,1,fake_board)):
 		pass
 	else:
-		end_game()
+		end_gui_game(init_gui_board)
 	
-	
-def end_game():
-	clear_screen()
-	score = sum(board)
-	if score < high_score:
-		print('GAME OVER, GOOD TRY!')
+def get_action(event):
+	keyboard_input = event.char
+	if keyboard_input == 'w':   # up
+		print('up')
+		step = 1
+		factor = dimension
+	elif keyboard_input == 'a': # left
+		print('left')
+		step = 1
+		factor = 1
+	elif keyboard_input == 's': # down
+		print('down')
+		step = -1
+		factor = dimension
+	elif keyboard_input == 'd': # right
+		print('right')
+		step = -1
+		factor = 1
 	else:
-		print('NEW HIGHSCORE!')
-		file = open(file_name,'w')
-		file.write(str(score))
-	print_board()
-	quit()
-
-def print_board():
-	score = sum(board)
-	if score < high_score:
-		print('SCORE:',score,'HIGHSCORE:',high_score)
-	else: 
-		print('SCORE:',score,'HIGHSCORE:',score)
-	for i in range(dimension):
-		start = dimension*i
-		end = start+dimension
-		print(' '+(13*dimension-1)*'-')
-		print('|'+dimension*(12*' '+'|'))
-		print('|',end='')
-		for j in board[start:end]:
-			if j == 0:
-				print('{0:8s}    |'.format(' '),end='')
-			else:
-				print('{0:9d}   |'.format(j),end='')
-		print('\n|'+dimension*(12*' '+'|'))
-	print(' '+(13*dimension-1)*'-')
-	
-def clear_screen():
-	print(48*'\n')
+		return
+	is_change = move(step,factor)
+	if is_change:
+		add_tile()
+	update_gui_board()
+	check_if_game_over()
 	
 def run_game():
 	add_tile()
 	add_tile()
-	while(True):
-		clear_screen()
-		print_board()
-		get_action()
-		check_if_game_over()
+	init_gui_board()
+	update_gui_board()
+	top.mainloop()	
+###----------------###
 
-# start tkinter app
-top = Tk()
-top.title = '2048'
-# make app size 600 by 250
-top.geometry('660x660')
-# create canvas we can put our buttons and output text on
-#  "{0:#0{1}x}".format(2048111,8)[2:]
+# load high score from txt file
+try:
+	file = open(file_name,'r')
+	high_score = file.read()
+except Exception as e:
+	# create file if doesn't exist
+	file = open(file_name,'w+')
+	high_score = 0
+try:
+	# set highscore
+	high_score = int(high_score)
+except Exception as e:
+	high_score = 0
 
-canvas = Canvas(top, width=160,height=160, bd=1,bg='#cdc1b3')
-canvas.grid(row=0, column=0)
+root.title('2048')
+root.minsize(535,585)
+root.maxsize(535,585)
+root.bind("<Key>", get_action)
 
-canvas = Canvas(top, width=160,height=160, bd=0,bg='#f0e6d6')
-canvas.grid(row=0, column=1)
-canvas.create_text(80,80,fill='black',font='Times 32 italic bold', text='2')
-
-canvas = Canvas(top, width=160,height=160, bd=0,bg='#ffffa0')
-canvas.grid(row=0, column=2)
-canvas.create_text(80,80,fill='black',font='Times 32 italic bold', text='4')
-
-canvas = Canvas(top, width=160,height=160, bd=0,bg='#ffe0b5')
-canvas.grid(row=0, column=3)
-canvas.create_text(80,80,fill='white',font='Times 32 italic bold', text='8')
-
-canvas = Canvas(top, width=160,height=160, bd=0,bg='#ffff30')
-canvas.grid(row=1, column=0)
-canvas.create_text(80,80,fill='white',font='Times 32 italic bold', text='16')
-
-canvas = Canvas(top, width=160,height=160, bd=0,bg='#ffc5c5')
-canvas.grid(row=1, column=1)
-canvas.create_text(80,80,fill='white',font='Times 32 italic bold', text='32')
-
-canvas = Canvas(top, width=160,height=160, bd=0,bg='#ffff50')
-canvas.grid(row=1, column=2)
-canvas.create_text(80,80,fill='white',font='Times 32 italic bold', text='64')
-
-canvas = Canvas(top, width=160,height=160, bd=0,bg='#ffff60')
-canvas.grid(row=1, column=3)
-canvas.create_text(80,80,fill='white',font='Times 32 italic bold', text='128')
-
-canvas = Canvas(top, width=160,height=160, bd=0,bg='#ffff70')
-canvas.grid(row=2, column=0)
-canvas.create_text(80,80,fill='white',font='Times 32 italic bold', text='256')
-
-
-top.mainloop()
+run_game()
