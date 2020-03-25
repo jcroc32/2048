@@ -53,6 +53,9 @@ def set_score(score,high_score):
 	make_gui_tile(width,height,bg,row,column,fill,font,text)
 
 def init_gui_board():
+	board = total_tiles*[0]
+	add_tile()
+	add_tile()
 	# retry_button_canvas.pack_forget()
 	width = width_tile
 	height = height_scoreboard
@@ -159,19 +162,15 @@ def check_if_game_over():
 def get_action(event):
 	keyboard_input = event.char
 	if keyboard_input == 'w':   # up
-		print('up')
 		step = 1
 		factor = dimension
 	elif keyboard_input == 'a': # left
-		print('left')
 		step = 1
 		factor = 1
 	elif keyboard_input == 's': # down
-		print('down')
 		step = -1
 		factor = dimension
 	elif keyboard_input == 'd': # right
-		print('right')
 		step = -1
 		factor = 1
 	else:
@@ -183,8 +182,6 @@ def get_action(event):
 	check_if_game_over()
 	
 def run_game():
-	add_tile()
-	add_tile()
 	init_gui_board()
 	update_gui_board()
 	top.mainloop()	
