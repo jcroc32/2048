@@ -7,77 +7,106 @@ if sys.version_info[0] < 3:
 	import Tkinter as tkinter
 else:
 	import tkinter
+root = tkinter.Tk()
 
 ###--game variables--###
 global board
 global score
 global high_score
-dimension = 4
+global use_old_game
+dimension = 3
 total_tiles = dimension**2
-file_name = '.HIGHSCORE.txt'
+game_data_folder = '.2048gamedata/'
+high_score_file = game_data_folder + '.HIGHSCOREFOR'+str(dimension)+'DBOARD.txt'
+previous_game_file = game_data_folder + '.PREVIOUSGAMEFOR'+str(dimension)+'DBOARD.txt'
+previous_score_file = game_data_folder + '.PREVIOUSSCOREFOR'+str(dimension)+'DBOARD.txt'
 ###------------------###
-
+'''
+def set_dim(dim):
+    dimension = dim
+scale = tkinter.Scale(orient='horizontal', from_=2, to=10, command=set_dim)
+scale.pack()
+scale.mainloop()
+'''
 ###--GUI variables--###
+global retry_button_text
+screen_width = root.winfo_screenwidth()
+screen_height = root.winfo_screenheight()
 width_tile = 130
 height_tile = 130
 height_scoreboard = 50
 width_scoreboard = 130
 pad = 5
 total_width = (width_tile + pad)*dimension + pad
-total_height = (height_tile+pad)*dimension + pad + height_scoreboard
-font_tile = 'Times 24 italic bold'
-font_scoreboard = 'Times 12 italic bold'
-root = tkinter.Tk()
+total_height = (height_tile + pad)*dimension + pad + height_scoreboard
 top = tkinter.Canvas(root, width=total_width, height=total_height)
-def tile_cords(index):
-	x1 = pad + (width_tile + pad)*(index%dimension)
-	y1 = height_scoreboard + pad + (height_tile + pad)*(index//dimension)
-	x2 = (width_tile + pad)*(1 + index%dimension)
-	y2 = height_scoreboard + (height_tile + pad)*(1 + index//dimension)
-	return x1, y1, x2, y2
-tile_board = [top.create_rectangle(tile_cords(i), fill='#cdcdcd') for i in range(total_tiles)]
-text_board = [top.create_text((tile_cords(i)[0] + width_tile/2,tile_cords(i)[1] + height_tile/2), text = '') for i in range(total_tiles)]
+tile_cords = total_tiles*[0]
+for i in range(total_tiles):
+	x1 = pad + (width_tile + pad)*(i%dimension)
+	y1 = height_scoreboard + pad + (height_tile + pad)*(i//dimension)
+	x2 = (width_tile + pad)*(1 + i%dimension)
+	y2 = height_scoreboard + (height_tile + pad)*(1 + i//dimension)
+	tile_cords[i] = (x1,y1,x2,y2)
+text_cords = total_tiles*[0]
+for i in range(total_tiles):
+	x = pad + width_tile/2 + (width_tile + pad)*(i%dimension)
+	y = height_scoreboard + pad + height_tile/2 + (height_tile + pad)*(i//dimension)
+	text_cords[i] = (x,y)
+tile_board = [top.create_rectangle(tile_cords[i], fill='#cdcdcd') for i in range(total_tiles)]
+text_board = [top.create_text(text_cords[i], text='', font='Times 24 italic bold') for i in range(total_tiles)]
+score_board = top.create_text((total_width - 150, height_scoreboard/2), text='', font='Times 12 italic bold')
+hight_score_board = top.create_text((total_width - 50, height_scoreboard/2), text='',font='Times 12 italic bold')
+game_over_box = top.create_text((75,25), text='', font='Times 16 italic bold', fill='red')
+retry_button_window = top.create_window(175, 25)
+retry_button_text = tkinter.StringVar()
 top.pack()
 ###-----------------###
 
 ###--GUI actions--###
-def make_gui_tile(width, height, bg, row, column, font, text):
-	if bg == '':
-		canvas = tkinter.Canvas(top, width=width, height=height)
-	else:
-		canvas = tkinter.Canvas(top, width=width, height=height, bg=bg)
-	canvas.grid(row=row,column=column)
-	canvas.create_text(width/2, height/2, font=font, text=text)
-
-def set_score(score):
-	global high_score
-	width = width_scoreboard
-	height = height_scoreboard
-	bg = ''
-	row = 0
-	column = dimension-1
-	font = font_scoreboard
-	text = 'score: ' + str(score)
-	make_gui_tile(width, height, bg, row, column, font, text)
-	if score > high_score:
-		high_score = score
-	column = dimension
-	text = 'high score: '+str(high_score)
-	make_gui_tile(width, height, bg, row, column, font, text)
-
+def on_closing():
+	file = open(previous_game_file, 'w')
+	file.write(str(board))
+	file.close()
+	file = open(previous_score_file, 'w')
+	file.write(str(score))
+	file.close()
+	if score == high_score:
+		file = open(high_score_file, 'w')
+		file.write(str(high_score))
+		file.close()
+	root.destroy()
+#
+root.protocol("WM_DELETE_WINDOW", on_closing)
+#
 def init_gui_board():
 	global board
 	global score
-	board = total_tiles*[0]
-	score = 0
-	add_tile(board)
-	add_tile(board)
+	global retry_button_text
+	global use_old_game
+	if use_old_game:
+		use_old_game = check_if_moves_possible(board)
+	if not use_old_game:
+		board = total_tiles*[0]
+		score = 0
+		add_tile(board)
+		add_tile(board)
+	use_old_game = False
+	retry_button_text.set('Start over')
+	retry_button = tkinter.Button(top, textvariable=retry_button_text, command=init_gui_board, bg='#c0c0c0')
+	top.itemconfig(retry_button_window, window=retry_button)
+	top.coords(retry_button_window,(50,25))
+	top.itemconfig(game_over_box, text='')
+	top.coords(game_over_box,(75,25))
 	update_gui_board(board, score)
-
+#
+def set_score(score):
+	global high_score
+	top.itemconfig(score_board, text='score: ' + str(score))
+	if score > high_score:
+		high_score = score
+	top.itemconfig(hight_score_board, text='high score: '+str(high_score))
+#
 def update_gui_board(board, score):
-	width = width_tile
-	height = height_tile
-	font = font_tile
 	for i in range(total_tiles):
 		tile = board[i]
 		if tile == 0:
@@ -94,26 +123,22 @@ def update_gui_board(board, score):
 			text = str(tile)
 		top.itemconfig(tile_board[i], fill=bg)
 		top.itemconfig(text_board[i], text=text)
-	# set_score(score)
-
+	set_score(score)
+#
 def end_gui_game():
 	global score
 	global high_score
-	width = width_tile
-	height = height_scoreboard
-	bg = ''
-	text = 'GAME OVER'
-	font = 'Times 16 italic bold'
-	row = 0
-	column = 1
-	make_gui_tile(width, height, bg, row, column, font, text)
-	canvas = tkinter.Canvas(top, width=width, height=height_scoreboard)
-	canvas.grid(row=0, column=2)
-	retry_button = tkinter.Button(canvas, text='Try Again?', command=init_gui_board, bg='#c0c0c0')
-	retry_button_window = canvas.create_window(65, 25, window=retry_button)
-	top.pack()
+	global retry_button_text
+	retry_button_text.set('Try Again?')
+	top.coords(retry_button_window,(180, 25))
+	top.itemconfig(score_board, text='')
+	top.itemconfig(hight_score_board, text='')
+	top.itemconfig(game_over_box, text='GAME OVER')
 	if score == high_score:
-		file = open(file_name, 'w')
+		top.itemconfig(game_over_box, text='NEW HIGHSCORE!')
+		top.coords(game_over_box,(100,25))
+		top.coords(retry_button_window,(240, 25))
+		file = open(high_score_file, 'w')
 		file.write(str(high_score))
 		file.close()
 ###---------------###
@@ -125,7 +150,7 @@ def add_tile(board):
 	p = random.random()
 	tile = 2 if p < .9 else 4
 	board[position] = tile
-
+#
 def move(step,factor,board):
 	move_score = 0
 	needs_update = False
@@ -145,16 +170,13 @@ def move(step,factor,board):
 				needs_update = True
 				move_score += board[j]
 	return needs_update, move_score
-
-def check_if_game_over(board):
+#
+def check_if_moves_possible(board):
 	test_board = copy.deepcopy(board)
 	move_possible = (move(1, 1, test_board)[0] or move(1, dimension, test_board)[0] 
 				or move(-1, dimension, test_board)[0] or move(-1, 1, test_board)[0])
-	if move_possible:
-		pass
-	else:
-		end_gui_game()
-
+	return move_possible
+#
 def move_direction(step, factor):
 	global board
 	global score
@@ -163,8 +185,10 @@ def move_direction(step, factor):
 		score += move_score
 		add_tile(board)
 		update_gui_board(board, score)
-		check_if_game_over(board)
-
+		move_possible = check_if_moves_possible(board)
+		if not move_possible:
+			end_gui_game()
+#
 def move_up(event):
 	step = 1
 	factor = dimension
@@ -183,20 +207,28 @@ def move_right(event):
 	move_direction(step, factor)
 ###----------------###
 
-# load high score from txt file
+# load previuos game, score, and high score from txt file
+use_old_game = True
 try:
-	file = open(file_name, 'r')
-	high_score = file.read()
-	high_score = int(high_score)
+	file = open(previous_game_file,'r')
+	board = file.read()
 	file.close()
+	board = list(map(int, board[1:-1].split(',')))
+	file = open(previous_score_file,'r')
+	score = int(file.read())
+	file.close()
+	file = open(high_score_file, 'r')
+	high_score = int(file.read())
+	file.close()
+	if len(board) != total_tiles:
+		use_old_game = False
 except Exception as e:
-	file = open(file_name, 'w')
+	use_old_game = False
 	high_score = 0
-	file.close()
 
 root.title('2048')
 root.minsize(total_width, total_height)
-root.maxsize(total_width, total_height)
+root.maxsize(screen_width, screen_height)
 root.bind('<Up>', move_up)
 root.bind('<Down>', move_down)
 root.bind('<Left>', move_left)
