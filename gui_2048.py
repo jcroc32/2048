@@ -1,4 +1,5 @@
 import sys
+import os
 import math
 import random
 import copy
@@ -17,6 +18,7 @@ global use_old_game
 dimension = 3
 total_tiles = dimension**2
 game_data_folder = '.2048gamedata/'
+os.makedirs(game_data_folder, exist_ok = True) 
 high_score_file = game_data_folder + '.HIGHSCOREFOR'+str(dimension)+'DBOARD.txt'
 previous_game_file = game_data_folder + '.PREVIOUSGAMEFOR'+str(dimension)+'DBOARD.txt'
 previous_score_file = game_data_folder + '.PREVIOUSSCOREFOR'+str(dimension)+'DBOARD.txt'
