@@ -1,13 +1,17 @@
 #!/usr/bin/python3
+from __future__ import print_function
 import sys
 import os
+import platform
 import random
 import copy
-# import correct package for python 2 or 3
+# import correct packages for python 2 or 3
 if sys.version_info[0] < 3:
 	import Tkinter as tkinter
+	from pathlib2 import Path
 else:
 	import tkinter
+	from pathlib import Path
 root = tkinter.Tk()
 
 ###--game variables--###
@@ -18,7 +22,10 @@ global use_old_game
 dimension = 4
 total_tiles = dimension*dimension
 game_data_folder = '.2048gamedata/.'
-os.makedirs(game_data_folder, exist_ok=True) 
+Path(game_data_folder).mkdir(exist_ok=True)
+if platform.system() == 'Windows':
+	import subprocess
+	subprocess.check_call(["attrib","+H",game_data_folder])
 high_score_file = game_data_folder + str(dimension) + 'DHIGHSCORE.txt'
 previous_game_file = game_data_folder + str(dimension) + 'DPREVIOUSGAME.txt'
 previous_score_file = game_data_folder + str(dimension) + 'DPREVIOUSSCORE.txt'
@@ -26,20 +33,7 @@ colormap = {0:'#cdc1b4', 2:'#eee4da', 4:'#ede0c8', 8:'#f2b179', 16:'#f59563', 32
 			64:'#f6603c', 128:'#eed072', 256: '#edcc61', 512:'#ecc851', 1024:'#edc53f', 
 			2048:'#edc22e', 4096:'#f925d2', 8192:'#ff2ab3', 16384:'#fb2ea4', 32768:'#fb3572'}
 ###------------------###
-'''
-def set_dim(dim):
-	dimension = dim
-scale = tkinter.Scale(orient='horizontal', from_=3, to=10, command=set_dim)
-scale.pack()
-'''
-'''
-mb = Menubutton ( top, text="condiments", relief=RAISED )
-menubar = tkinter.Menu(root)
-filemenu = tkinter.Menu(menubar, tearoff=0)
-filemenu.add_command(label="Set Dimension", command=set_dim)
-menubar.add_cascade(label="Change Dimension", menu=filemenu)
-root.config(menu=menubar)
-'''
+
 ###--GUI variables--###
 global retry_button_text
 screen_width = root.winfo_screenwidth()
@@ -98,7 +92,7 @@ def init_game():
 	global retry_button_text
 	global use_old_game
 	if use_old_game:
-		use_old_game = check_if_moves_possible(board)
+		use_old_game = not check_if_game_over(board)
 	if not use_old_game:
 		board = total_tiles*[0]
 		score = 0
@@ -162,64 +156,114 @@ def add_tile(board):
 	tile = 2 if p < .9 else 4
 	board[position] = tile
 #
-def move(step,factor,board):
-	move_score = 0
+def up(i):
+	return lambda j: j*dimension + i
+#
+def left(i):
+	return lambda j: i*dimension + j
+#
+def down(i):
+	return lambda j: (dimension - j - 1)*dimension + i
+#
+def right(i):
+	return lambda j: (i + 1)*dimension - j - 1
+#
+def collect_tiles(board, f):
 	needs_update = False
-	for i in (range(dimension)[::step])[:-1]:
-		start = factor*i
-		end = int(start+total_tiles/factor)
-		for j in range(start,end,int(dimension/factor)):
-			next_index = j + step*factor
-			if board[j] == 0:
-				board[j] = board[next_index]
-				board[next_index] = 0
-				if board[j] != 0:
-					needs_update = True
-			elif board[j] == board[next_index]:
-				board[j] *= 2
-				board[next_index] = 0
+	zeros = 0
+	non_zero = 0
+	for i in range(dimension):
+		if board[f(i)] == 0:
+			zeros+=1
+		else:
+			non_zero+=1
+			if zeros > 0:
+				board[f(i - zeros)] = board[f(i)]
+				board[f(i)] = 0
 				needs_update = True
-				move_score += board[j]
+	return non_zero, needs_update
+#
+def match_tiles(board, non_zero, f):
+	needs_update = False
+	move_score = 0
+	i = 0
+	pad = 0
+	while i < non_zero-1:
+		tile_value = board[f(i)]
+		if tile_value == board[f(i+1)]:
+			board[f(i-pad)] = tile_value*2
+			pad+=1
+			i+=1
+			move_score+=tile_value*2
+		else:
+			board[f(i-pad)] = tile_value
+		i+=1
+	if i < non_zero:
+		board[f(i-pad)] = board[f(i)]
+	for i in range(non_zero-pad,non_zero):
+		board[f(i)] = 0
+	return move_score
+#
+def move(board, direction):
+	needs_update = False
+	move_score = 0
+	for i in range(dimension):
+		f = direction(i)
+		non_zero, update = collect_tiles(board,f)
+		move_score+=match_tiles(board,non_zero,f)
+		needs_update = needs_update or update or move_score > 0
 	return needs_update, move_score
 #
-def check_if_moves_possible(board):
+def check_if_game_over(board):
 	test_board = copy.deepcopy(board)
-	moveup = move(1, dimension, test_board)[0]
-	moveleft = move(1, 1, test_board)[0]
-	movedown = move(-1, dimension, test_board)[0]
-	moveright = move(-1, 1, test_board)[0]
-	move_possible = moveup or moveleft or movedown or moveleft
-	return move_possible
+	for i in range(total_tiles):
+		if test_board[i] == 0:
+			return False
+	for i in range(dimension):
+		for j in range(dimension-1):
+			if test_board[up(i)(j)] == test_board[up(i)(j+1)]:
+				return False
+			if test_board[left(i)(j)] == test_board[left(i)(j+1)]:
+				return False
+	return True
 #
-def move_direction(step, factor):
+def move_direction(direction):
 	global board
 	global score
-	needs_update, move_score = move(step, factor, board)
+	needs_update, move_score = move(board, direction)
 	if needs_update:
 		score += move_score
 		add_tile(board)
 		update_board(board, score)
-		move_possible = check_if_moves_possible(board)
-		if not move_possible:
+		if check_if_game_over(board):
 			end_game()
 #
 def move_up(event):
-	step = 1
-	factor = dimension
-	move_direction(step, factor)
+	move_direction(up)
 def move_left(event):
-	step = 1
-	factor = 1
-	move_direction(step, factor)
+	move_direction(left)
 def move_down(event):
-	step = -1
-	factor = dimension
-	move_direction(step, factor)
+	move_direction(down)
 def move_right(event):
-	step = -1
-	factor = 1
-	move_direction(step, factor)
+	move_direction(right)
 ###----------------###
+
+###--Debugging actions--###
+def print_board(board):
+	for i in range(dimension):
+		start = dimension*i
+		end = start+dimension
+		print(' '+(13*dimension-1)*'-')
+		print('|'+dimension*(12*' '+'|'))
+		print('|',end='')
+		for j in board[start:end]:
+			if j == 0:
+				print('{0:8s}    |'.format(' '),end='')
+			else:
+				print('{0:9d}   |'.format(j),end='')
+		print('\n|'+dimension*(12*' '+'|'))
+	print(' '+(13*dimension-1)*'-')
+###---------------------###
 
 # load previuos game, score, and high score from txt file
 use_old_game = True
