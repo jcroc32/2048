@@ -1,144 +1,252 @@
-from __future__ import print_function
-# figure out if Windows or Linux machine
-import platform
-if platform.system() == 'Windows':
-	from msvcrt import getch
+#!/usr/bin/python3
+import sys
+import os
+import random
+import copy
+# import correct package for python 2 or 3
+if sys.version_info[0] < 3:
+	import Tkinter as tkinter
 else:
-	import sys, termios, tty
-	def getch():
-		fd = sys.stdin.fileno()
-		old_settings = termios.tcgetattr(fd)
-		try:
-			tty.setraw(sys.stdin.fileno())
-			ch = sys.stdin.read(1)			
-		finally:
-			termios.tcsetattr(fd,termios.TCSADRAIN,old_settings)
-		return ch
-import random as rn
-rn.seed(a=0) # for debugging
+	import tkinter
+root = tkinter.Tk()
 
-# game variables
+###--game variables--###
+global board
+global score
+global high_score
+global use_old_game
 dimension = 4
-board = dimension**2*[0]
+total_tiles = dimension*dimension
+game_data_folder = '.2048gamedata/.'
+os.makedirs(game_data_folder, exist_ok=True) 
+high_score_file = game_data_folder + str(dimension) + 'DHIGHSCORE.txt'
+previous_game_file = game_data_folder + str(dimension) + 'DPREVIOUSGAME.txt'
+previous_score_file = game_data_folder + str(dimension) + 'DPREVIOUSSCORE.txt'
+colormap = {0:'#cdc1b4', 2:'#eee4da', 4:'#ede0c8', 8:'#f2b179', 16:'#f59563', 32:'#f67c5f',
+			64:'#f6603c', 128:'#eed072', 256: '#edcc61', 512:'#ecc851', 1024:'#edc53f', 
+			2048:'#edc22e', 4096:'#f925d2', 8192:'#ff2ab3', 16384:'#fb2ea4', 32768:'#fb3572'}
+###------------------###
+'''
+def set_dim(dim):
+	dimension = dim
+scale = tkinter.Scale(orient='horizontal', from_=3, to=10, command=set_dim)
+scale.pack()
+'''
+'''
+mb = Menubutton ( top, text="condiments", relief=RAISED )
+menubar = tkinter.Menu(root)
+filemenu = tkinter.Menu(menubar, tearoff=0)
+filemenu.add_command(label="Set Dimension", command=set_dim)
+menubar.add_cascade(label="Change Dimension", menu=filemenu)
+root.config(menu=menubar)
+'''
+###--GUI variables--###
+global retry_button_text
+screen_width = root.winfo_screenwidth()
+screen_height = root.winfo_screenheight()
+width_tile = 130
+height_tile = 130
+height_scoreboard = 50
+pad = 5
+total_width = (width_tile + pad)*dimension + pad
+total_height = (height_tile + pad)*dimension + pad + height_scoreboard
+top = tkinter.Canvas(root, width=total_width, height=total_height)
+tile_cords = total_tiles*[0]
+for i in range(total_tiles):
+	x1 = pad + (width_tile + pad)*(i%dimension)
+	y1 = height_scoreboard + pad + (height_tile + pad)*(i//dimension)
+	x2 = (width_tile + pad)*(1 + i%dimension)
+	y2 = height_scoreboard + (height_tile + pad)*(1 + i//dimension)
+	tile_cords[i] = (x1,y1,x2,y2)
+text_cords = total_tiles*[0]
+for i in range(total_tiles):
+	x = pad + width_tile/2 + (width_tile + pad)*(i%dimension)
+	y = height_scoreboard + pad + height_tile/2 + (height_tile + pad)*(i//dimension)
+	text_cords[i] = (x,y)
+tile_board = [top.create_rectangle(tile_cords[i], fill='#cdcdcd') for i in range(total_tiles)]
+text_board = [top.create_text(text_cords[i], text='', font='Times 24 italic bold') for i in range(total_tiles)]
+score_board = top.create_text((total_width - 200, height_scoreboard/2), text='', font='Times 12 italic bold')
+hight_score_board = top.create_text((total_width - 75, height_scoreboard/2), text='',font='Times 12 italic bold')
+game_over_box = top.create_text((75,25), text='', font='Times 16 italic bold', fill='red')
+retry_button_window = top.create_window(175, 25)
+retry_button_text = tkinter.StringVar()
+top.pack()
+###-----------------###
 
-file_name = '.HIGHSCORE.txt'
-# load high score from txt file
-try:
-  file = open(file_name,'r')
-  high_score = file.read()
-except Exception as e:
-  file = open(file_name,'w+')
-  high_score = 0
-try:
-  high_score = int(high_score)
-except Exception as e:
-  high_score = 0
+###--GUI actions--###
+def save_game():
+	file = open(previous_game_file, 'w')
+	file.write(str(board))
+	file.close()
+	file = open(previous_score_file, 'w')
+	file.write(str(score))
+	file.close()
+	if score == high_score:
+		file = open(high_score_file, 'w')
+		file.write(str(high_score))
+		file.close()
+#
+def on_closing():
+	save_game()
+	root.destroy()
+#
+root.protocol("WM_DELETE_WINDOW", on_closing)
+#
+def init_game():
+	global board
+	global score
+	global retry_button_text
+	global use_old_game
+	if use_old_game:
+		use_old_game = check_if_moves_possible(board)
+	if not use_old_game:
+		board = total_tiles*[0]
+		score = 0
+		add_tile(board)
+		add_tile(board)
+	use_old_game = False
+	top.itemconfig(hight_score_board, text='high score: '+str(high_score), fill='grey')
+	retry_button_text.set('Start over')
+	retry_button = tkinter.Button(top, textvariable=retry_button_text, command=init_game, bg='#c0c0c0')
+	top.itemconfig(retry_button_window, window=retry_button)
+	top.coords(retry_button_window,(50,25))
+	top.itemconfig(game_over_box, text='')
+	top.coords(game_over_box,(75,25))
+	update_board(board, score)
+#
+def set_score(score):
+	global high_score
+	top.itemconfig(score_board, text='score: ' + str(score))
+	if score > high_score:
+		high_score = score
+		top.itemconfig(hight_score_board, text='high score: '+str(high_score), fill='black')
+#
+def update_board(board, score):
+	for i in range(total_tiles):
+		tile = board[i]
+		if tile > 32768:
+			bg = '#3c3a32'
+		else:
+			bg = colormap[tile]
+		if tile == 0:
+			text = ''
+		else:
+			text = str(tile)
+		top.itemconfig(tile_board[i], fill=bg)
+		top.itemconfig(text_board[i], text=text)
+	set_score(score)
+#
+def end_game():
+	global score
+	global high_score
+	global retry_button_text
+	retry_button_text.set('Try Again?')
+	top.coords(retry_button_window,(200, 25))
+	top.itemconfig(score_board, text='')
+	top.itemconfig(hight_score_board, text='')
+	top.itemconfig(game_over_box, text='GAME OVER')
+	if score == high_score:
+		top.itemconfig(game_over_box, text='NEW HIGHSCORE!')
+		top.coords(game_over_box,(100,25))
+		top.coords(retry_button_window,(250, 25))
+		file = open(high_score_file, 'w')
+		file.write(str(high_score))
+		file.close()
+###---------------###
 
-# game actions
-def make_fake_board():
-	fake_board = len(board)*[0]
-	for i in range(len(board)):
-		fake_board[i] = board[i]
-	return fake_board
-
-def move(step,factor,board=board):
-	is_change = False
+###--Game actions--###	
+def add_tile(board):
+	free_tiles = [i for i in range(total_tiles) if board[i] == 0]
+	position = random.choice(free_tiles)
+	p = random.random()
+	tile = 2 if p < .9 else 4
+	board[position] = tile
+#
+def move(step,factor,board):
+	move_score = 0
+	needs_update = False
 	for i in (range(dimension)[::step])[:-1]:
 		start = factor*i
-		end = int(start+dimension**2/factor)
+		end = int(start+total_tiles/factor)
 		for j in range(start,end,int(dimension/factor)):
-			next_index = j+step*factor
+			next_index = j + step*factor
 			if board[j] == 0:
 				board[j] = board[next_index]
 				board[next_index] = 0
 				if board[j] != 0:
-					is_change = True
+					needs_update = True
 			elif board[j] == board[next_index]:
 				board[j] *= 2
 				board[next_index] = 0
-				is_change = True
-	return is_change
+				needs_update = True
+				move_score += board[j]
+	return needs_update, move_score
+#
+def check_if_moves_possible(board):
+	test_board = copy.deepcopy(board)
+	moveup = move(1, dimension, test_board)[0]
+	moveleft = move(1, 1, test_board)[0]
+	movedown = move(-1, dimension, test_board)[0]
+	moveright = move(-1, 1, test_board)[0]
+	move_possible = moveup or moveleft or movedown or moveleft
+	return move_possible
+#
+def move_direction(step, factor):
+	global board
+	global score
+	needs_update, move_score = move(step, factor, board)
+	if needs_update:
+		score += move_score
+		add_tile(board)
+		update_board(board, score)
+		move_possible = check_if_moves_possible(board)
+		if not move_possible:
+			end_game()
+#
+def move_up(event):
+	step = 1
+	factor = dimension
+	move_direction(step, factor)
+def move_left(event):
+	step = 1
+	factor = 1
+	move_direction(step, factor)
+def move_down(event):
+	step = -1
+	factor = dimension
+	move_direction(step, factor)
+def move_right(event):
+	step = -1
+	factor = 1
+	move_direction(step, factor)
+###----------------###
 
-def add_tile():
-	free_tiles = [i for i in range(len(board)) if board[i] == 0]
-	position = rn.choice(free_tiles)
-	p = rn.random()
-	tile = 2 if p < .9 else 4
-	board[position] = tile
-	
-def get_action():
-	keyboard_input = getch()
-	if keyboard_input == b'w' or keyboard_input == b'H' or keyboard_input == b'A':   # up
-		step = 1
-		factor = dimension
-	elif keyboard_input == b'a' or keyboard_input == b'K' or keyboard_input == b'D': # left
-		step = 1
-		factor = 1
-	elif keyboard_input == b's' or keyboard_input == b'P' or keyboard_input == b'B': # down
-		step = -1
-		factor = dimension
-	elif keyboard_input == b'd' or keyboard_input == b'M' or keyboard_input == b'C': # right
-		step = -1
-		factor = 1
-	elif keyboard_input == b'q' or keyboard_input == b'\x03':
-		end_game()
-	else:
-		return
-	is_change = move(step,factor)
-	if is_change:
-		add_tile()
-		
-def check_if_game_over():
-	fake_board = make_fake_board()
-	if (move(1,1,fake_board) or move(1,dimension,fake_board) 
-	or move(-1,dimension,fake_board) or move(-1,1,fake_board)):
-		pass
-	else:
-		end_game()
-	
-	
-def end_game():
-	clear_screen()
-	score = sum(board)
-	if score < high_score:
-		print('GAME OVER, GOOD TRY!')
-	else:
-		print('NEW HIGHSCORE!')
-		file = open(file_name,'w')
-		file.write(str(score))
-	print_board()
-	quit()
+# load previuos game, score, and high score from txt file
+use_old_game = True
+try:
+	file = open(previous_game_file,'r')
+	board = file.read()
+	file.close()
+	board = list(map(int, board[1:-1].split(',')))
+	file = open(previous_score_file,'r')
+	score = int(file.read())
+	file.close()
+	file = open(high_score_file, 'r')
+	high_score = int(file.read())
+	file.close()
+	if len(board) != total_tiles:
+		use_old_game = False
+except Exception as e:
+	use_old_game = False
+	high_score = 0
 
-def print_board():
-	score = sum(board)
-	if score < high_score:
-		print('SCORE:',score,'HIGHSCORE:',high_score)
-	else: 
-		print('SCORE:',score,'HIGHSCORE:',score)
-	for i in range(dimension):
-		start = dimension*i
-		end = start+dimension
-		print(' '+(13*dimension-1)*'-')
-		print('|'+dimension*(12*' '+'|'))
-		print('|',end='')
-		for j in board[start:end]:
-			if j == 0:
-				print('{0:8s}    |'.format(' '),end='')
-			else:
-				print('{0:9d}   |'.format(j),end='')
-		print('\n|'+dimension*(12*' '+'|'))
-	print(' '+(13*dimension-1)*'-')
-	
-def clear_screen():
-	print(48*'\n')
-	
-def run_game():
-	add_tile()
-	add_tile()
-	while(True):
-		clear_screen()
-		print_board()
-		get_action()
-		check_if_game_over()
+root.title('2048')
+root.minsize(total_width, total_height)
+root.maxsize(screen_width, screen_height)
+root.bind('<Up>', move_up)
+root.bind('<Down>', move_down)
+root.bind('<Left>', move_left)
+root.bind('<Right>', move_right)
 
-run_game()
+init_game()
+top.mainloop()

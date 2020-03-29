@@ -1,106 +1,67 @@
-import time
-import sys
-if sys.version_info[0] < 3:
-	from Tkinter import *
-else:
-	from tkinter import *
+def left(i,j):
+	return i*dimension + j
 
-colormap = {0:'#cdc1b4', 2:'#eee4da', 4:'#ede0c8', 8:'#f2b179', 16:'#f59563', 32:'#f67c5f',
-			64:'#f6603c', 128:'#eed072', 256: '#edcc61', 512:'#ecc851', 1024:'#edc53f', 
-			2048:'#edc22e', 4096:'#f925d2', 8192:'#ff2ab3', 16384:'#fb2ea4', 32768:'#fb3572'}
-a = '#3c3a32'
-# start tkinter app
-top = Tk()
-top.title('2048')
-# make app size 
-top.geometry('560x620')
-top.minsize(570, 620)
-top.maxsize(570, 620)
+def right(i,j):
+	return (i + 1)*dimension - j - 1
 
-for i in range(16):
-	j = i
-	'''if j < 6:
-		bcolor = '#'+'{0:#0{1}x}'.format(13487565 - 34*j,8)[2:]
-	elif j < 12:
-		bcolor = '#'+'{0:#0{1}x}'.format(13487395 - 34*(j-5)*256,8)[2:]
-	else:
-		bcolor = '#'+'{0:#0{1}x}'.format(13435171 - 34*(j-11)*65536,8)[2:]'''
-	bcolor = colormap[j]
-	canvas = Canvas(top, width=130,height=130, bd=4,bg=bcolor)
-	canvas.grid(row=i//4+1, column=i%4+1)
-	canvas.create_text(65,65,fill='black',font='Times 24 italic bold', text=str(2**(i)))
+def up(i,j):
+	return j*dimension + i
 
-canvas = Canvas(top, width=130,height=50)
-canvas.grid(row=0, column=3)
-canvas.create_text(65,25,fill='black',font='Times 12 italic bold', text='score: 4096')
+def down(i,j):
+	return (dimension - j - 1)*dimension + i
 
-canvas = Canvas(top, width=130,height=50)
-canvas.grid(row=0, column=4)
-canvas.create_text(65,25,fill='black',font='Times 12 italic bold', text='high score: 114096')
+def move(board,direction):
+	for j in range(dimension):
+		def f(x): return direction(j,x)
+		non_zero = collect_tiles(board,f)
+		match_tiles(board,non_zero,f)
 
-canvas = Canvas(top, width=130,height=50)
-canvas.grid(row=0, column=1)
-canvas.create_text(65,25,fill='red',font='Times 16 italic bold', text='GAME OVER')
+def collect_tiles(board,f):
+	zeros = 0
+	non_zero = 0
+	for i in range(dimension):
+		if board[f(i)] == 0:
+			zeros+=1
+		else:
+			non_zero+=1
+			if zeros > 0:
+				board[f(i - zeros)] = board[f(i)]
+				board[f(i)] = 0
+	return non_zero
 
-for j in range(6):
-	top.grid_rowconfigure(j, weight=1)
-	top.grid_columnconfigure(j, weight=1)
+def match_tiles(board,non_zero,f):
+	i = 0
+	pad = 0
+	while i < non_zero-1:
+		if board[f(i)] == board[f(i+1)]:
+			board[f(i-pad)] = board[f(i)]*2
+			pad+=1
+			i+=1
+		else:
+			board[f(i-pad)] = board[f(i)]
+		i+=1
+	if i < non_zero:
+		board[f(i-pad)] = board[f(i)]
+	for i in range(non_zero-pad,non_zero):
+		board[f(i)] = 0
 
-arr = []
-varr = 'a'
-for k in range(1000):
-	arr.append(k)
-	exec(varr + ' = arr')
-	varr = varr+'a'
+def print_board(board):
+	for i in range(dimension):
+		start = dimension*i
+		end = start+dimension
+		print(' '+(13*dimension-1)*'-')
+		print('|'+dimension*(12*' '+'|'))
+		print('|',end='')
+		for j in board[start:end]:
+			if j == 0:
+				print('{0:8s}    |'.format(' '),end='')
+			else:
+				print('{0:9d}   |'.format(j),end='')
+		print('\n|'+dimension*(12*' '+'|'))
+	print(' '+(13*dimension-1)*'-')
 
+dimension = 4
+board = 16*[2]
+move(board,down)
+print_board(board)
 
-'''
-dim = 100
-iterations = 100
-for j in range(6):
-	tot_tiles = dim**2
-	f = dim**2*[1]
-
-	start = time.time()
-	for i in range(iterations):
-		b = len(f)
-		a = 1
-		aa = 25
-		aaaaaaaaaa = 24
-	stop = time.time() - start
-	print(stop)
-
-	start = time.time()
-	for i in range(iterations):
-		b = dim**2
-		a = 1
-		aa = 25
-		aaaaaaaaaa = 24
-	stop = time.time() - start
-	print(stop)
-
-
-	start = time.time()
-	for i in range(iterations):
-		b = tot_tiles
-		a = 1
-		aa = 25
-		aaaaaaaaaa = 24
-	stop = time.time() - start
-	print(stop)
-
-	start = time.time()
-	for i in range(iterations):
-		b = dim*dim
-		a = 1
-		aa = 25
-		aaaaaaaaaa = 24
-	stop = time.time() - start
-	print(stop)
-	
-	print('\n\n')
-	iterations = iterations*10
-'''
-
-
-top.mainloop()
