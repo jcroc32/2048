@@ -5,7 +5,10 @@ if sys.version_info[0] < 3:
 else:
 	from tkinter import *
 
-
+colormap = {0:'#cdc1b4', 2:'#eee4da', 4:'#ede0c8', 8:'#f2b179', 16:'#f59563', 32:'#f67c5f',
+			64:'#f6603c', 128:'#eed072', 256: '#edcc61', 512:'#ecc851', 1024:'#edc53f', 
+			2048:'#edc22e', 4096:'#f925d2', 8192:'#ff2ab3', 16384:'#fb2ea4', 32768:'#fb3572'}
+a = '#3c3a32'
 # start tkinter app
 top = Tk()
 top.title('2048')
@@ -16,15 +19,16 @@ top.maxsize(570, 620)
 
 for i in range(16):
 	j = i
-	if j < 6:
+	'''if j < 6:
 		bcolor = '#'+'{0:#0{1}x}'.format(13487565 - 34*j,8)[2:]
 	elif j < 12:
 		bcolor = '#'+'{0:#0{1}x}'.format(13487395 - 34*(j-5)*256,8)[2:]
 	else:
-		bcolor = '#'+'{0:#0{1}x}'.format(13435171 - 34*(j-11)*65536,8)[2:]
+		bcolor = '#'+'{0:#0{1}x}'.format(13435171 - 34*(j-11)*65536,8)[2:]'''
+	bcolor = colormap[j]
 	canvas = Canvas(top, width=130,height=130, bd=4,bg=bcolor)
 	canvas.grid(row=i//4+1, column=i%4+1)
-	canvas.create_text(65,65,fill='black',font='Times 24 italic bold', text=str(2**(i+2)))
+	canvas.create_text(65,65,fill='black',font='Times 24 italic bold', text=str(2**(i)))
 
 canvas = Canvas(top, width=130,height=50)
 canvas.grid(row=0, column=3)
@@ -50,7 +54,7 @@ for k in range(1000):
 	varr = varr+'a'
 
 
-
+'''
 dim = 100
 iterations = 100
 for j in range(6):
@@ -96,7 +100,7 @@ for j in range(6):
 	
 	print('\n\n')
 	iterations = iterations*10
-
+'''
 
 
 top.mainloop()
